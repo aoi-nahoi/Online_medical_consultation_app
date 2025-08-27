@@ -2,17 +2,17 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"telemed/internal/config"
-	"telemed/internal/database"
-	"telemed/internal/handlers"
-	"telemed/internal/middleware"
-	"telemed/internal/repositories"
-	"telemed/internal/services"
-	"telemed/internal/websocket"
+	"online_medical_consultation_app/backend/internal/config"
+	"online_medical_consultation_app/backend/internal/database"
+	"online_medical_consultation_app/backend/internal/handlers"
+	"online_medical_consultation_app/backend/internal/middleware"
+	"online_medical_consultation_app/backend/internal/repositories"
+	"online_medical_consultation_app/backend/internal/services"
 )
 
 func main() {
@@ -24,40 +24,51 @@ func main() {
 	// 設定の読み込み
 	cfg := config.Load()
 
-	// データベース接続
-	db, err := database.Connect(cfg.DatabaseURL)
+	// データベース接続の初期化
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "host=localhost user=postgres password=postgres dbname=medical_consultation port=5432 sslmode=disable"
+	}
+
+	db, err := database.Connect(databaseURL)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// マイグレーション実行
+	// グローバルデータベースインスタンスを設定
+	database.SetDB(db)
+
+	// データベースマイグレーションの実行
 	if err := database.Migrate(db); err != nil {
-		log.Fatal("Failed to run migrations:", err)
+		log.Fatal("Failed to run database migrations:", err)
 	}
 
 	// リポジトリの初期化
 	userRepo := repositories.NewUserRepository(db)
-	appointmentRepo := repositories.NewAppointmentRepository(db)
 	slotRepo := repositories.NewSlotRepository(db)
+	appointmentRepo := repositories.NewAppointmentRepository(db)
 	messageRepo := repositories.NewMessageRepository(db)
 	prescriptionRepo := repositories.NewPrescriptionRepository(db)
 	auditRepo := repositories.NewAuditRepository(db)
+	videoSessionRepo := repositories.NewVideoSessionRepository(db)
 
 	// サービスの初期化
 	authService := services.NewAuthService(userRepo, cfg.JWTSecret)
-	appointmentService := services.NewAppointmentService(appointmentRepo, slotRepo, auditRepo)
-	chatService := services.NewChatService(messageRepo, auditRepo)
-	videoService := services.NewVideoService(auditRepo)
-
-	// WebSocketハンドラーの初期化
-	wsHandler := websocket.NewHandler(chatService, videoService)
+	slotService := services.NewSlotService(slotRepo)
+	appointmentService := services.NewAppointmentService(appointmentRepo, slotRepo, userRepo)
+	chatService := services.NewChatService(messageRepo, appointmentRepo, userRepo)
+	prescriptionService := services.NewPrescriptionService(prescriptionRepo, appointmentRepo, userRepo)
+	auditService := services.NewAuditService(auditRepo, userRepo)
+	videoService := services.NewVideoService(videoSessionRepo, appointmentRepo, userRepo)
 
 	// ハンドラーの初期化
 	authHandler := handlers.NewAuthHandler(authService)
-	patientHandler := handlers.NewPatientHandler(appointmentService, chatService)
-	doctorHandler := handlers.NewDoctorHandler(appointmentService, slotRepo, prescriptionService)
+	slotHandler := handlers.NewSlotHandler(slotService)
 	appointmentHandler := handlers.NewAppointmentHandler(appointmentService)
 	chatHandler := handlers.NewChatHandler(chatService)
+	prescriptionHandler := handlers.NewPrescriptionHandler(prescriptionService)
+	auditHandler := handlers.NewAuditHandler(auditService)
+	videoHandler := handlers.NewVideoHandler(videoService)
 
 	// Ginルーターの設定
 	router := gin.Default()
@@ -81,64 +92,145 @@ func main() {
 		protected := api.Group("")
 		protected.Use(middleware.Auth(cfg.JWTSecret))
 		{
+			// 医師関連（/meルートを最初に定義）
+			doctors := protected.Group("/doctors")
+			{
+				// /meルートを最初に定義（パラメータ付きルートより優先）
+				doctors.GET("/me/slots", slotHandler.GetSlots)
+				doctors.POST("/me/slots", slotHandler.CreateSlot)
+				doctors.PUT("/me/slots/:id", slotHandler.UpdateSlot)
+				doctors.DELETE("/me/slots/:id", slotHandler.DeleteSlot)
+				doctors.GET("/me/profile", func(c *gin.Context) {
+					userID, _ := c.Get("user_id")
+					profile, err := userRepo.FindDoctorProfileByUserID(userID.(uint))
+					if err != nil {
+						c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+						return
+					}
+					c.JSON(http.StatusOK, gin.H{"profile": profile})
+				})
+				doctors.PUT("/me/profile", func(c *gin.Context) {
+					log.Printf("PUT /doctors/me/profile called")
+					userID, _ := c.Get("user_id")
+					log.Printf("User ID: %v", userID)
+					
+					var req map[string]interface{}
+					if err := c.ShouldBindJSON(&req); err != nil {
+						log.Printf("JSON binding error: %v", err)
+						c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+						return
+					}
+					
+					log.Printf("Request body: %+v", req)
+					
+					profile, err := userRepo.FindDoctorProfileByUserID(userID.(uint))
+					if err != nil {
+						log.Printf("Profile not found error: %v", err)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+						return
+					}
+					
+					log.Printf("Current profile: %+v", profile)
+					
+					// プロフィールの更新
+					if name, ok := req["name"].(string); ok {
+						profile.Name = name
+					}
+					if specialty, ok := req["specialty"].(string); ok {
+						profile.Specialty = specialty
+					}
+					if licenseNumber, ok := req["licenseNumber"].(string); ok {
+						profile.LicenseNumber = licenseNumber
+					}
+					if bio, ok := req["bio"].(string); ok {
+						profile.Bio = bio
+					}
+					
+					log.Printf("Updated profile: %+v", profile)
+					
+					if err := userRepo.UpdateDoctorProfile(profile); err != nil {
+						log.Printf("Update error: %v", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+						return
+					}
+					
+					log.Printf("Profile updated successfully")
+					c.JSON(http.StatusOK, gin.H{"message": "Profile updated successfully", "profile": profile})
+				})
+			}
+
 			// 患者関連
 			patients := protected.Group("/patients")
 			{
-				patients.GET("/me", patientHandler.GetProfile)
-				patients.PUT("/me", patientHandler.UpdateProfile)
-				patients.GET("/appointments", patientHandler.GetAppointments)
-				patients.POST("/appointments", patientHandler.CreateAppointment)
-				patients.GET("/appointments/:id", patientHandler.GetAppointment)
-				patients.POST("/appointments/:id/cancel", patientHandler.CancelAppointment)
-				patients.GET("/prescriptions", patientHandler.GetPrescriptions)
+				patients.GET("/appointments", appointmentHandler.GetPatientAppointments)
+				patients.POST("/appointments", appointmentHandler.CreateAppointment)
+				patients.GET("/appointments/:id", appointmentHandler.GetAppointmentDetails)
+				patients.PUT("/appointments/:id/cancel", appointmentHandler.CancelAppointment)
 			}
 
-			// 医師関連
-			doctors := protected.Group("/doctors")
-			{
-				doctors.GET("/me", doctorHandler.GetProfile)
-				doctors.PUT("/me", doctorHandler.UpdateProfile)
-				doctors.GET("/me/slots", doctorHandler.GetSlots)
-				doctors.POST("/me/slots", doctorHandler.CreateSlot)
-				doctors.PUT("/me/slots/:id", doctorHandler.UpdateSlot)
-				doctors.DELETE("/me/slots/:id", doctorHandler.DeleteSlot)
-				doctors.GET("/me/appointments", doctorHandler.GetAppointments)
-				doctors.POST("/appointments/:id/confirm", doctorHandler.ConfirmAppointment)
-				doctors.POST("/appointments/:id/reject", doctorHandler.RejectAppointment)
-				doctors.POST("/prescriptions", doctorHandler.CreatePrescription)
-			}
+			// 医師の予約取得エンドポイント
+			protected.GET("/doctors/me/appointments", appointmentHandler.GetDoctorAppointments)
+			protected.PUT("/doctors/me/appointments/:id/status", appointmentHandler.UpdateAppointmentStatus)
 
-			// 予約関連
-			appointments := protected.Group("/appointments")
-			{
-				appointments.GET("/:id", appointmentHandler.GetAppointment)
-			}
+			// 医師一覧（患者用）
+			protected.GET("/doctors", func(c *gin.Context) {
+				// 実際の医師データを取得
+				doctors, err := userRepo.FindDoctors()
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch doctors"})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{"doctors": doctors})
+			})
 
-			// チャット関連
-			chat := protected.Group("/chat")
-			{
-				chat.GET("/appointments/:id/messages", chatHandler.GetMessages)
-				chat.POST("/appointments/:id/messages", chatHandler.SendMessage)
-			}
+					// 利用可能な診療枠（患者用）
+		protected.GET("/doctors/:doctorId/slots", slotHandler.GetAvailableSlots)
 
-			// ビデオ関連
-			video := protected.Group("/video")
-			{
-				video.POST("/sessions", videoHandler.CreateSession)
-				video.POST("/sessions/:roomId/token", videoHandler.GetToken)
-			}
+		// チャット機能
+		chat := protected.Group("/appointments/:appointmentId/chat")
+		{
+			chat.GET("/messages", chatHandler.GetMessages)
+			chat.POST("/messages", chatHandler.SendMessage)
+			chat.POST("/attachments", chatHandler.UploadAttachment)
+			chat.PUT("/read", chatHandler.MarkAsRead)
+			chat.GET("/unread-count", chatHandler.GetUnreadCount)
+		}
 
-			// ファイルアップロード
-			uploads := protected.Group("/uploads")
-			{
-				uploads.POST("", uploadHandler.UploadFile)
-			}
+		// 処方管理
+		prescriptions := protected.Group("/appointments/:appointmentId/prescriptions")
+		{
+			prescriptions.GET("", prescriptionHandler.GetPrescriptions)
+			prescriptions.POST("", prescriptionHandler.CreatePrescription)
+			prescriptions.GET("/:id", prescriptionHandler.GetPrescriptionDetails)
+			prescriptions.PUT("/:id", prescriptionHandler.UpdatePrescription)
+			prescriptions.DELETE("/:id", prescriptionHandler.DeletePrescription)
+		}
+
+		// ビデオ通話
+		video := protected.Group("/appointments/:appointmentId/video")
+		{
+			video.POST("/sessions", videoHandler.CreateVideoSession)
+			video.GET("/sessions", videoHandler.GetVideoSessionsByAppointment)
+			video.GET("/sessions/:sessionId", videoHandler.GetVideoSession)
+			video.POST("/sessions/:sessionId/join", videoHandler.JoinVideoSession)
+			video.PUT("/sessions/:sessionId/start", videoHandler.StartVideoSession)
+			video.PUT("/sessions/:sessionId/end", videoHandler.EndVideoSession)
+			video.GET("/sessions/:sessionId/offer", videoHandler.GetWebRTCOffer)
+			video.POST("/sessions/:sessionId/answer", videoHandler.SetWebRTCAnswer)
+		}
+
+		// 監査ログ（管理者用）
+		audit := protected.Group("/audit")
+		{
+			audit.GET("/logs", auditHandler.GetAuditLogs)
+			audit.GET("/users/:userId/logs", auditHandler.GetUserAuditLogs)
+			audit.GET("/entities/:entity/:entityId/logs", auditHandler.GetEntityAuditLogs)
+			audit.GET("/export", auditHandler.ExportAuditLogs)
+		}
 		}
 	}
 
-	// WebSocketルート
-	router.GET("/ws/appointments/:id", wsHandler.HandleChat)
-	router.GET("/ws/video/:roomId", wsHandler.HandleVideo)
+
 
 	// サーバー起動
 	port := os.Getenv("SERVER_PORT")

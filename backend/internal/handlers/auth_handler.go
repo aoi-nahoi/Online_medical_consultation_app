@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"telemed/internal/services"
+	"online_medical_consultation_app/backend/internal/services"
 )
 
 type AuthHandler struct {

@@ -1,4 +1,4 @@
-module telemed
+module online_medical_consultation_app/backend
 
 go 1.23
 

@@ -3,13 +3,25 @@ package database
 import (
 	"fmt"
 	"log"
-	"os"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"telemed/internal/models"
+	"online_medical_consultation_app/backend/internal/models"
 )
+
+var db *gorm.DB
+
+// GetDB returns the global database instance
+func GetDB() *gorm.DB {
+	return db
+}
+
+// SetDB sets the global database instance
+func SetDB(database *gorm.DB) {
+	db = database
+}
 
 func Connect(databaseURL string) (*gorm.DB, error) {
 	config := &gorm.Config{
@@ -136,10 +148,13 @@ func seedData(db *gorm.DB) error {
 		return err
 	}
 
+	// 日付文字列をtime.Timeに変換
+	birthdate, _ := time.Parse("2006-01-02", "1985-03-15")
+	
 	patientProfile := &models.PatientProfile{
 		UserID:    patient.ID,
 		Name:      "佐藤 患者",
-		Birthdate: "1985-03-15",
+		Birthdate: &birthdate,
 		Phone:     "090-1234-5678",
 		Address:   "東京都渋谷区...",
 	}

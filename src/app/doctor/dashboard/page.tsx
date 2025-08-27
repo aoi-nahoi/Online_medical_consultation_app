@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Calendar, MessageSquare, Video, FileText, LogOut, Plus, Clock, CheckCircle, XCircle, Users } from 'lucide-react'
+import { Calendar, MessageSquare, Video, FileText, LogOut, Plus, Clock, CheckCircle, XCircle, Users, Edit3 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Appointment {
@@ -109,13 +109,32 @@ export default function DoctorDashboard() {
   }
 
   const formatDateTime = (dateTime: string) => {
-    return new Date(dateTime).toLocaleString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    try {
+      console.log('Formatting dateTime:', dateTime)
+      
+      // RFC3339形式の日時文字列をパース
+      const date = new Date(dateTime)
+      console.log('Parsed date:', date)
+      
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', dateTime)
+        return '無効な日時'
+      }
+      
+      const formatted = date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      
+      console.log('Formatted result:', formatted)
+      return formatted
+    } catch (error) {
+      console.error('Date formatting error:', error, dateTime)
+      return '日時エラー'
+    }
   }
 
   if (loading) {
@@ -247,6 +266,13 @@ export default function DoctorDashboard() {
             >
               <FileText className="w-4 h-4 mr-2" />
               処方管理
+            </button>
+            <button
+              onClick={() => router.push('/doctor/profile')}
+              className="btn-secondary flex items-center"
+            >
+              <Edit3 className="w-4 h-4 mr-2" />
+              プロフィール編集
             </button>
           </div>
         </div>

@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -74,11 +73,7 @@ func RateLimit() gin.HandlerFunc {
 	}
 }
 
-// ヘルパー関数
-func fmt.Sprintf(format string, a ...interface{}) string {
-	// この関数は実際には不要ですが、Goの標準ライブラリのfmtパッケージを使用します
-	return ""
-}
+
 
 func generateRequestID() string {
 	// UUIDの生成は後で実装

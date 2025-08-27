@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -65,6 +66,24 @@ type AvailabilitySlot struct {
 	// リレーション
 	Doctor      User           `json:"doctor"`
 	Appointment *Appointment   `json:"appointment,omitempty"`
+}
+
+// MarshalJSON カスタムJSONマーシャリング
+func (s AvailabilitySlot) MarshalJSON() ([]byte, error) {
+	type Alias AvailabilitySlot
+	return json.Marshal(&struct {
+		*Alias
+		StartTime string `json:"start_time"`
+		EndTime   string `json:"end_time"`
+		CreatedAt string `json:"created_at"`
+		UpdatedAt string `json:"updated_at"`
+	}{
+		Alias:     (*Alias)(&s),
+		StartTime: s.StartTime.Format(time.RFC3339),
+		EndTime:   s.EndTime.Format(time.RFC3339),
+		CreatedAt: s.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: s.UpdatedAt.Format(time.RFC3339),
+	})
 }
 
 // Appointment 予約

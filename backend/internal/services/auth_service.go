@@ -2,12 +2,13 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
-	"telemed/internal/models"
-	"telemed/internal/repositories"
+	"online_medical_consultation_app/backend/internal/models"
+	"online_medical_consultation_app/backend/internal/repositories"
 )
 
 type AuthService struct {
@@ -55,6 +56,7 @@ func (s *AuthService) Register(req RegisterRequest) (*models.User, error) {
 	if err == nil && existingUser != nil {
 		return nil, errors.New("user already exists")
 	}
+	// エラーがnilでない場合（ユーザーが見つからない場合）は正常
 
 	// パスワードのハッシュ化
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -84,8 +86,10 @@ func (s *AuthService) Register(req RegisterRequest) (*models.User, error) {
 		}
 	} else if req.Role == "doctor" {
 		profile := &models.DoctorProfile{
-			UserID: user.ID,
-			Name:   req.Name,
+			UserID:        user.ID,
+			Name:          req.Name,
+			Specialty:     "一般診療", // デフォルト値
+			LicenseNumber: "D" + fmt.Sprintf("%06d", user.ID), // 仮のライセンス番号
 		}
 		if err := s.userRepo.CreateDoctorProfile(profile); err != nil {
 			return nil, err
@@ -100,6 +104,11 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 	// ユーザーの検索
 	user, err := s.userRepo.FindByEmail(req.Email)
 	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	// ユーザーがnilの場合のチェック
+	if user == nil {
 		return nil, errors.New("invalid credentials")
 	}
 
