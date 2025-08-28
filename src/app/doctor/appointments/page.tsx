@@ -225,12 +225,26 @@ export default function DoctorAppointments() {
                             </div>
                           )}
                           {appointment.status === 'confirmed' && (
-                            <button
-                              onClick={() => router.push(`/doctor/appointments/${appointment.id}/video`)}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              ビデオ通話
-                            </button>
+                            <>
+                              <button
+                                onClick={() => router.push(`/doctor/appointments/${appointment.id}/chat`)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                チャット
+                              </button>
+                              <button
+                                onClick={() => router.push(`/doctor/appointments/${appointment.id}/video`)}
+                                className="text-green-600 hover:text-green-900"
+                              >
+                                ビデオ通話
+                              </button>
+                              <button
+                                onClick={() => router.push(`/doctor/appointments/${appointment.id}/prescriptions`)}
+                                className="text-purple-600 hover:text-purple-900"
+                              >
+                                処方管理
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>

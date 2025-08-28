@@ -43,6 +43,8 @@ npm run dev
 
 # 5. バックエンドの起動
 cd backend && go run cmd/api/main.go
+
+# フロントエンドとバックエンドは別ターミナルで起動
 ```
 
 ## アクセス

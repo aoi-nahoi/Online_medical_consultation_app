@@ -227,6 +227,22 @@ export default function PatientAppointments() {
                           >
                             詳細
                           </button>
+                          {appointment.status === 'confirmed' && (
+                            <>
+                              <button
+                                onClick={() => router.push(`/patient/appointments/${appointment.id}/chat`)}
+                                className="text-green-600 hover:text-green-900"
+                              >
+                                チャット
+                              </button>
+                              <button
+                                onClick={() => router.push(`/patient/appointments/${appointment.id}/video`)}
+                                className="text-purple-600 hover:text-purple-900"
+                              >
+                                ビデオ通話
+                              </button>
+                            </>
+                          )}
                           {appointment.status === 'pending' && (
                             <button
                               onClick={() => cancelAppointment(appointment.id)}

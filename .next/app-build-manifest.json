@@ -21,15 +21,50 @@
       "static/chunks/main-app.js",
       "static/chunks/app/doctor/profile/page.js"
     ],
-    "/doctor/slots/new/page": [
+    "/doctor/appointments/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/doctor/slots/new/page.js"
+      "static/chunks/app/doctor/appointments/page.js"
     ],
     "/doctor/slots/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/doctor/slots/page.js"
+    ],
+    "/doctor/prescriptions/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/doctor/prescriptions/page.js"
+    ],
+    "/patient/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/patient/dashboard/page.js"
+    ],
+    "/patient/chat/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/patient/chat/page.js"
+    ],
+    "/patient/prescriptions/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/patient/prescriptions/page.js"
+    ],
+    "/patient/appointments/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/patient/appointments/page.js"
+    ],
+    "/patient/appointments/new/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/patient/appointments/new/page.js"
+    ],
+    "/doctor/slots/new/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/doctor/slots/new/page.js"
     ]
   }
 }

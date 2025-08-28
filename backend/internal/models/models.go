@@ -18,8 +18,8 @@ type User struct {
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// リレーション
-	PatientProfile *PatientProfile `json:"patient_profile,omitempty"`
-	DoctorProfile  *DoctorProfile  `json:"doctor_profile,omitempty"`
+	PatientProfile *PatientProfile `gorm:"foreignKey:UserID;references:ID" json:"patient_profile,omitempty"`
+	DoctorProfile  *DoctorProfile  `gorm:"foreignKey:UserID;references:ID" json:"doctor_profile,omitempty"`
 }
 
 // PatientProfile 患者プロフィール
@@ -34,7 +34,7 @@ type PatientProfile struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// リレーション
-	User User `json:"user"`
+	User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 }
 
 // DoctorProfile 医師プロフィール
@@ -49,23 +49,23 @@ type DoctorProfile struct {
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// リレーション
-	User User `json:"user"`
+	User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 }
 
 // AvailabilitySlot 診療可能枠
 type AvailabilitySlot struct {
-	ID          uint           `gorm:"primaryKey" json:"id"`
-	DoctorID    uint           `gorm:"not null" json:"doctor_id"`
-	StartTime   time.Time      `gorm:"not null" json:"start_time"`
-	EndTime     time.Time      `gorm:"not null" json:"end_time"`
-	Status      string         `gorm:"not null;default:'open';check:status IN ('open','blocked')" json:"status"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	DoctorID  uint           `gorm:"not null" json:"doctor_id"`
+	StartTime time.Time      `gorm:"not null" json:"start_time"`
+	EndTime   time.Time      `gorm:"not null" json:"end_time"`
+	Status    string         `gorm:"not null;default:'open';check:status IN ('open','blocked')" json:"status"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// リレーション
-	Doctor      User           `json:"doctor"`
-	Appointment *Appointment   `json:"appointment,omitempty"`
+	Doctor      User         `gorm:"foreignKey:DoctorID;references:ID" json:"doctor"`
+	Appointment *Appointment `gorm:"foreignKey:SlotID;references:ID" json:"appointment,omitempty"`
 }
 
 // MarshalJSON カスタムJSONマーシャリング
@@ -99,29 +99,29 @@ type Appointment struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// リレーション
-	Patient      User           `json:"patient"`
-	Doctor       User           `json:"doctor"`
-	Slot         *AvailabilitySlot `json:"slot,omitempty"`
-	Messages     []Message      `json:"messages,omitempty"`
-	Prescriptions []Prescription `json:"prescriptions,omitempty"`
-	VideoSessions []VideoSession `json:"video_sessions,omitempty"`
+	Patient       User            `gorm:"foreignKey:PatientID;references:ID" json:"patient"`
+	Doctor        User            `gorm:"foreignKey:DoctorID;references:ID" json:"doctor"`
+	Slot          *AvailabilitySlot `gorm:"foreignKey:SlotID;references:ID" json:"slot,omitempty"`
+	Messages      []Message       `gorm:"foreignKey:AppointmentID;references:ID" json:"messages,omitempty"`
+	Prescriptions []Prescription  `gorm:"foreignKey:AppointmentID;references:ID" json:"prescriptions,omitempty"`
+	VideoSessions []VideoSession  `gorm:"foreignKey:AppointmentID;references:ID" json:"video_sessions,omitempty"`
 }
 
 // Message チャットメッセージ
 type Message struct {
-	ID             uint           `gorm:"primaryKey" json:"id"`
-	AppointmentID  uint           `gorm:"not null" json:"appointment_id"`
-	SenderUserID   uint           `gorm:"not null" json:"sender_user_id"`
-	Body           string         `json:"body"`
-	AttachmentURL  *string        `json:"attachment_url"`
-	ReadAt         *time.Time     `json:"read_at"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	AppointmentID uint           `gorm:"not null" json:"appointment_id"`
+	SenderUserID  uint           `gorm:"not null" json:"sender_user_id"`
+	Body          string         `json:"body"`
+	AttachmentURL *string        `json:"attachment_url"`
+	ReadAt        *time.Time     `json:"read_at"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// リレーション
-	Appointment Appointment `json:"appointment"`
-	Sender      User        `json:"sender"`
+	Appointment Appointment `gorm:"foreignKey:AppointmentID;references:ID" json:"appointment"`
+	Sender      User        `gorm:"foreignKey:SenderUserID;references:ID" json:"sender"`
 }
 
 // VideoSession ビデオセッション
@@ -136,23 +136,23 @@ type VideoSession struct {
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// リレーション
-	Appointment Appointment `json:"appointment"`
+	Appointment Appointment `gorm:"foreignKey:AppointmentID;references:ID" json:"appointment"`
 }
 
 // Prescription 処方
 type Prescription struct {
-	ID                 uint           `gorm:"primaryKey" json:"id"`
-	AppointmentID      uint           `gorm:"not null" json:"appointment_id"`
-	ItemsJSON          string         `gorm:"not null" json:"items_json"` // JSON文字列
-	Notes              string         `json:"notes"`
-	CreatedByDoctorID  uint           `gorm:"not null" json:"created_by_doctor_id"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
+	ID                uint           `gorm:"primaryKey" json:"id"`
+	AppointmentID     uint           `gorm:"not null" json:"appointment_id"`
+	ItemsJSON         string         `gorm:"not null" json:"items_json"` // JSON文字列
+	Notes             string         `json:"notes"`
+	CreatedByDoctorID uint           `gorm:"not null" json:"created_by_doctor_id"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// リレーション
-	Appointment     Appointment `json:"appointment"`
-	CreatedByDoctor User        `json:"created_by_doctor"`
+	Appointment     Appointment `gorm:"foreignKey:AppointmentID;references:ID" json:"appointment"`
+	CreatedByDoctor User        `gorm:"foreignKey:CreatedByDoctorID;references:ID" json:"created_by_doctor"`
 }
 
 // AuditLog 監査ログ
@@ -169,42 +169,18 @@ type AuditLog struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// リレーション
-	User *User `json:"user,omitempty"`
+	User *User `gorm:"foreignKey:UserID;references:ID" json:"user,omitempty"`
 }
 
 // TableName テーブル名の指定
-func (User) TableName() string {
-	return "users"
-}
-
-func (PatientProfile) TableName() string {
-	return "patient_profiles"
-}
-
-func (DoctorProfile) TableName() string {
-	return "doctor_profiles"
-}
-
+func (User) TableName() string           { return "users" }
+func (PatientProfile) TableName() string { return "patient_profiles" }
+func (DoctorProfile) TableName() string  { return "doctor_profiles" }
 func (AvailabilitySlot) TableName() string {
 	return "availability_slots"
 }
-
-func (Appointment) TableName() string {
-	return "appointments"
-}
-
-func (Message) TableName() string {
-	return "messages"
-}
-
-func (VideoSession) TableName() string {
-	return "video_sessions"
-}
-
-func (Prescription) TableName() string {
-	return "prescriptions"
-}
-
-func (AuditLog) TableName() string {
-	return "audit_logs"
-}
+func (Appointment) TableName() string  { return "appointments" }
+func (Message) TableName() string      { return "messages" }
+func (VideoSession) TableName() string { return "video_sessions" }
+func (Prescription) TableName() string { return "prescriptions" }
+func (AuditLog) TableName() string     { return "audit_logs" }

@@ -95,7 +95,7 @@ func createIndexes(db *gorm.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_appointments_doctor_id ON appointments(doctor_id);
 		CREATE INDEX IF NOT EXISTS idx_messages_appointment_id ON messages(appointment_id);
 		CREATE INDEX IF NOT EXISTS idx_slots_doctor_id ON availability_slots(doctor_id);
-		CREATE INDEX IF NOT EXISTS idx_slots_start_time ON availability_slots(start_time_utc);
+		CREATE INDEX IF NOT EXISTS idx_slots_start_time ON availability_slots(start_time);
 	`).Error; err != nil {
 		return err
 	}
